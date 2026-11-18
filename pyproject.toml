@@ -1,0 +1,18 @@
+[project]
+name = "eml-study"
+version = "0.1.0"
+description = "Single-unit capability study: EML unit vs. perceptron and other activations"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "torch",
+    "numpy",
+    "matplotlib",
+    "scikit-learn>=1.9.1",
+]
+
+[dependency-groups]
+dev = ["pytest"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

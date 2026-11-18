@@ -1,0 +1,21 @@
+{
+  "accuracy_wave_evaluator_10000": 0.9635,
+  "max_abs_logit_error_10000": 4.263256414560601e-14,
+  "levels": 152,
+  "level_width_min": 1,
+  "level_width_median": 80.0,
+  "level_width_max": 22881,
+  "e_nodes": 258842,
+  "network_us_per_image_single": 2.9577295063063502,
+  "network_us_per_image_batch10000": 0.25312832091003656,
+  "eml_sequential_ms_single": 213.83106933596233,
+  "eml_waves_ms_single": 4.8007499892264605,
+  "eml_waves_ms_per_image_batch100": 3.6877725001734993,
+  "ns_per_complex_E": 17.26753320544958,
+  "ns_per_real_multiply_add": 0.3237499855458737,
+  "multiply_adds_network": 25408,
+  "machine": "arm64",
+  "python": "3.12.14",
+  "numpy": "2.5.5",
+  "torch": "2.15.0"
+}

@@ -1,0 +1,308 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EML Digit Reader</title>
+<meta name="description" content="Draw a digit; it is read by one formula built only from E(x, y) = exp(x) − ln(y), the number 1 and the pixels.">
+<link rel="icon" href="data:,">
+<style>
+  :root {
+    --bg: #ffffff; --fg: #000000; --grey: #8a8a8a; --faint: #d6d6d6; --cell: #f2f2f2;
+    --font: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) { --bg: #000000; --fg: #ffffff; --grey: #8a8a8a; --faint: #3a3a3a; --cell: #141414; }
+  }
+  :root[data-theme="dark"] { --bg: #000000; --fg: #ffffff; --grey: #8a8a8a; --faint: #3a3a3a; --cell: #141414; }
+
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 14px/1.45 var(--font);
+         font-feature-settings: "tnum"; -webkit-font-smoothing: antialiased; }
+  a { color: inherit; text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .page { max-width: 1120px; margin: 0 auto; padding: 0 32px; }
+  .grid { display: grid; grid-template-columns: repeat(12, 1fr); column-gap: 24px; }
+  .caps { font-size: 11px; font-weight: 500; letter-spacing: .08em; text-transform: uppercase; }
+  .grey { color: var(--grey); }
+
+  /* header */
+  header { padding: 28px 0 14px; border-bottom: 2px solid var(--fg); align-items: baseline; }
+  header .title { grid-column: 1 / 7; font-weight: 700; }
+  header nav { grid-column: 7 / 13; display: flex; gap: 24px; justify-content: flex-end; }
+
+  /* main */
+  .bench { padding: 40px 0 48px; row-gap: 32px; }
+  .left { grid-column: 1 / 7; }
+  .right { grid-column: 7 / 13; display: flex; flex-direction: column; aspect-ratio: 1; }
+  .right .scores { margin-top: auto; }
+
+  .sheet { position: relative; aspect-ratio: 1; border: 1px solid var(--fg); background-color: var(--bg);
+           background-image: linear-gradient(var(--cell) 1px, transparent 1px),
+                             linear-gradient(90deg, var(--cell) 1px, transparent 1px);
+           background-size: calc(100% / 28) calc(100% / 28); touch-action: none; cursor: crosshair; }
+  #pad { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .hint { position: absolute; left: 14px; bottom: 12px; pointer-events: none; }
+  .sheet.inked .hint { display: none; }
+  .actions { display: flex; gap: 24px; margin-top: 14px; align-items: baseline; }
+  .actions button, .actions label { font: inherit; color: var(--fg); background: none; border: 0; padding: 0; cursor: pointer; }
+  .actions button:hover, .actions label:hover { text-decoration: underline; }
+  .actions input { display: none; }
+  #note { margin-left: auto; }
+  :focus-visible { outline: 2px solid var(--fg); outline-offset: 3px; }
+
+  .answer-row { display: flex; align-items: flex-end; justify-content: space-between; border-bottom: 1px solid var(--fg); padding-bottom: 18px; }
+  #answer { font-size: 320px; line-height: .74; font-weight: 500; letter-spacing: -0.04em; margin-left: -12px;
+            padding-top: 40px; pointer-events: none; user-select: none; }
+  #answer.empty { color: var(--faint); }
+  .input { text-align: right; }
+  #seen { width: 56px; height: 56px; image-rendering: pixelated; display: block; border: 1px solid var(--faint); margin: 6px 0 0 auto; }
+
+  .scores { display: grid; grid-template-columns: repeat(10, 1fr); gap: 6px; margin-top: 18px; }
+  .scores .col { display: flex; flex-direction: column; gap: 6px; }
+  .scores .bar { height: 72px; display: flex; align-items: flex-end; }
+  .scores .bar i { display: block; width: 100%; background: var(--faint); height: 0; transition: height .15s ease-out; }
+  .scores .col.win .bar i { background: var(--fg); }
+  .scores .d { color: var(--grey); }
+  .scores .col.win .d { color: var(--fg); font-weight: 700; }
+
+  /* facts */
+  .facts { border-top: 2px solid var(--fg); padding: 16px 0 36px; row-gap: 14px; }
+  .fact { grid-column: span 2; }
+  .fact .v { margin-top: 2px; }
+  @media (max-width: 900px) { .fact { grid-column: span 4; } }
+
+  /* formula */
+  details { border-top: 1px solid var(--fg); padding: 14px 0; }
+  summary { cursor: pointer; list-style: none; }
+  summary::-webkit-details-marker { display: none; }
+  summary::after { content: " +"; }
+  details[open] summary::after { content: " −"; }
+  table { border-collapse: collapse; margin-top: 14px; width: 100%; max-width: 720px; }
+  td { padding: 4px 24px 4px 0; border-bottom: 1px solid var(--cell); white-space: nowrap; }
+  td.x { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 13px; }
+  td.r { text-align: right; padding-right: 0; }
+  tr.win td { font-weight: 700; }
+  tr.gap td { color: var(--grey); }
+
+  footer { border-top: 2px solid var(--fg); padding: 14px 0 40px; }
+  footer .l { grid-column: 1 / 9; }
+  footer .r { grid-column: 9 / 13; text-align: right; }
+
+  @media (max-width: 760px) {
+    .page { padding: 0 16px; }
+    .left, .right, header .title, header nav, footer .l, footer .r { grid-column: 1 / -1; }
+    .right { aspect-ratio: auto; }
+    .right .scores { margin-top: 18px; }
+    header nav { justify-content: flex-start; margin-top: 6px; }
+    footer .r { text-align: left; margin-top: 6px; }
+    #answer { font-size: 200px; padding-top: 28px; }
+    .bench { row-gap: 40px; }
+    .scores .bar { height: 56px; }
+  }
+  @media (prefers-reduced-motion: reduce) { .scores .bar i { transition: none; } }
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="grid">
+    <div class="title caps">EML Digit Reader</div>
+    <nav class="caps">
+      <a href="../paper/main.pdf">Paper</a>
+      <a href="../results/mnist/formula.txt">Formula</a>
+      <a href="https://github.com/darhnoel/eml-digit-recognition">Code</a>
+    </nav>
+  </header>
+
+  <main class="grid bench">
+    <section class="left">
+      <div class="sheet" id="sheet" aria-label="Drawing area">
+        <canvas id="pad" width="560" height="560"></canvas>
+        <div class="hint caps grey">Draw a digit 0–9</div>
+      </div>
+      <div class="actions">
+        <button id="clear" type="button">Clear</button>
+        <button id="sample" type="button">Test digit</button>
+        <label>Photo<input id="upload" type="file" accept="image/*"></label>
+        <span id="note" class="grey"></span>
+      </div>
+    </section>
+
+    <section class="right">
+      <div class="answer-row">
+        <div id="answer" class="empty" aria-live="polite">0</div>
+        <div class="input">
+          <div class="caps grey">Input</div>
+          <canvas id="seen" width="28" height="28" title="What the formula sees: 28 × 28, prepared like MNIST"></canvas>
+        </div>
+      </div>
+      <div class="scores" id="bars" aria-label="Scores for each digit"></div>
+    </section>
+  </main>
+
+  <section class="grid facts">
+    <div class="fact"><div class="caps grey">Operator</div><div class="v">E(x, y) = e<sup>x</sup> − ln y</div></div>
+    <div class="fact"><div class="caps grey">Formula</div><div class="v" id="size">258,842 E’s</div></div>
+    <div class="fact"><div class="caps grey">Leaves</div><div class="v">1 and 784 pixels</div></div>
+    <div class="fact"><div class="caps grey">Depth</div><div class="v">152 steps</div></div>
+    <div class="fact"><div class="caps grey">Time</div><div class="v" id="status">loading</div></div>
+    <div class="fact"><div class="caps grey">MNIST test</div><div class="v">96.35%</div></div>
+  </section>
+
+  <details>
+    <summary class="caps">The formula, with your values</summary>
+    <table id="receipt"></table>
+  </details>
+
+  <footer class="grid">
+    <div class="l grey">No neural network runs here. A small network was trained on MNIST and translated into E;
+      this page evaluates only the resulting formula. Chanrathnak Borann, 2026.</div>
+    <div class="r grey">Operator: Odrzywołek, <a href="https://arxiv.org/abs/2603.21852">arXiv:2603.21852</a></div>
+  </footer>
+</div>
+
+<script type="module">
+import { parseFormula, evaluateFull, slotName } from "./eml.js";
+import { toMnist } from "./preprocess.js";
+
+const $ = (id) => document.getElementById(id);
+const sheet = $("sheet"), pad = $("pad"), ctx = pad.getContext("2d", { willReadFrequently: true });
+const seen = $("seen").getContext("2d");
+const answer = $("answer"), bars = $("bars"), status = $("status"), note = $("note"), receipt = $("receipt");
+const cssVar = (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const fgRGB = () => (cssVar("--fg").match(/\w\w/g) ?? ["00", "00", "00"]).map((h) => parseInt(h, 16));
+let prog = null, mode = "drawn", samples = null, sampleIdx = 0;
+
+const fmt = (v) => !Number.isFinite(v) ? (Number.isNaN(v) ? "NaN" : v > 0 ? "+∞" : "−∞")
+  : Math.abs(v) < 5e-13 ? "0" : v.toFixed(4).replace(/\.?0+$/, "").replace("-", "−");
+
+function renderReceipt(vals) {
+  if (!prog) return;
+  const base = 1 + prog.nVars, rows = [];
+  for (let k = 0; k < 6; k++) {
+    rows.push(`<tr><td class="x">e${k + 1}</td><td class="x">E(${slotName(prog, prog.a[k])}, ${slotName(prog, prog.b[k])})</td>` +
+      `<td class="r">${vals ? fmt(vals.re[base + k]) : ""}</td></tr>`);
+  }
+  rows.push(`<tr class="gap"><td colspan="3">… ${(prog.nodes - 6).toLocaleString()} more lines</td></tr>`);
+  const best = vals ? vals.scores.indexOf(Math.max(...vals.scores)) : -1;
+  prog.scoreSlots.forEach((s, d) => {
+    rows.push(`<tr class="${d === best ? "win" : ""}"><td class="x">score_${d}</td><td class="x">${slotName(prog, s)}</td>` +
+      `<td class="r">${vals ? fmt(vals.scores[d]) : ""}</td></tr>`);
+  });
+  receipt.innerHTML = rows.join("");
+}
+
+function renderScores(scores) {
+  const hi = scores ? Math.max(...scores) : 0, lo = scores ? Math.min(...scores) : 0;
+  const best = scores ? scores.indexOf(hi) : -1;
+  bars.innerHTML = Array.from({ length: 10 }, (_, d) => {
+    const pct = scores ? 4 + (96 * (scores[d] - lo)) / (hi - lo || 1) : 0;
+    return `<div class="col${d === best ? " win" : ""}" title="${scores ? `score ${scores[d].toFixed(2)}` : ""}">` +
+      `<div class="bar"><i style="height:${pct.toFixed(1)}%"></i></div><div class="d">${d}</div></div>`;
+  }).join("");
+}
+
+function showSeen(px) {
+  const c = fgRGB(), img = seen.createImageData(28, 28);
+  for (let i = 0; i < 784; i++) img.data.set([c[0], c[1], c[2], px ? Math.round(px[i]) : 0], 4 * i);
+  seen.putImageData(img, 0, 0);
+}
+
+function idle() {
+  answer.textContent = "0"; answer.classList.add("empty");
+  showSeen(null); renderScores(null); renderReceipt(null);
+  if (prog) status.textContent = "ready";
+}
+
+function read(imageData, { drawn = true } = {}) {
+  if (!prog) return;
+  const px = toMnist(imageData, { drawn });
+  if (!px) { idle(); return; }
+  showSeen(px);
+  const t0 = performance.now();
+  const vals = evaluateFull(prog, px);
+  const ms = performance.now() - t0;
+  answer.textContent = String(vals.scores.indexOf(Math.max(...vals.scores)));
+  answer.classList.remove("empty");
+  renderScores(vals.scores); renderReceipt(vals);
+  status.textContent = `${ms.toFixed(1)} ms`;
+}
+
+function clearPad() {
+  ctx.clearRect(0, 0, pad.width, pad.height);
+  sheet.classList.remove("inked");
+  mode = "drawn"; note.textContent = "";
+  idle();
+}
+
+// drawing
+let drawing = false, last = null, queued = false;
+const pos = (e) => {
+  const r = pad.getBoundingClientRect();
+  return [(e.clientX - r.left) * (pad.width / r.width), (e.clientY - r.top) * (pad.height / r.height)];
+};
+const readPad = () => read(ctx.getImageData(0, 0, pad.width, pad.height));
+sheet.addEventListener("pointerdown", (e) => {
+  if (mode === "photo") clearPad();
+  note.textContent = "";
+  drawing = true; last = pos(e); sheet.setPointerCapture(e.pointerId); sheet.classList.add("inked");
+  ctx.fillStyle = cssVar("--fg"); ctx.beginPath(); ctx.arc(last[0], last[1], 19, 0, 2 * Math.PI); ctx.fill();
+});
+sheet.addEventListener("pointermove", (e) => {
+  if (!drawing) return;
+  ctx.strokeStyle = cssVar("--fg"); ctx.lineWidth = 38; ctx.lineCap = "round"; ctx.lineJoin = "round";
+  ctx.beginPath(); ctx.moveTo(...last);
+  for (const ev of (e.getCoalescedEvents?.() ?? [e])) { last = pos(ev); ctx.lineTo(...last); }
+  ctx.stroke();
+  if (!queued) { queued = true; requestAnimationFrame(() => { queued = false; readPad(); }); }
+});
+const stop = () => { if (drawing) { drawing = false; readPad(); } };
+sheet.addEventListener("pointerup", stop);
+sheet.addEventListener("pointercancel", stop);
+$("clear").addEventListener("click", clearPad);
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") clearPad(); });
+
+// a real MNIST test digit
+$("sample").addEventListener("click", async () => {
+  if (!samples) samples = await (await fetch("test_fixture.json")).json();
+  const i = sampleIdx++ % samples.pixels.length, c = fgRGB();
+  const small = new OffscreenCanvas(28, 28), sc = small.getContext("2d"), img = sc.createImageData(28, 28);
+  samples.pixels[i].forEach((v, j) => img.data.set([c[0], c[1], c[2], v], 4 * j));
+  sc.putImageData(img, 0, 0);
+  clearPad();
+  ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(small, 0, 0, pad.width, pad.height);
+  sheet.classList.add("inked");
+  readPad();
+  note.textContent = `MNIST test digit, true label ${samples.labels[i]}`;
+});
+
+// a photo
+$("upload").addEventListener("change", async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const bmp = await createImageBitmap(file);
+  const s = Math.min(1, 600 / Math.max(bmp.width, bmp.height));
+  const c = new OffscreenCanvas(Math.round(bmp.width * s), Math.round(bmp.height * s));
+  const cc = c.getContext("2d");
+  cc.drawImage(bmp, 0, 0, c.width, c.height);
+  clearPad();
+  mode = "photo";
+  const fit = Math.min(pad.width / c.width, pad.height / c.height);
+  ctx.drawImage(c, (pad.width - c.width * fit) / 2, (pad.height - c.height * fit) / 2, c.width * fit, c.height * fit);
+  sheet.classList.add("inked");
+  read(cc.getImageData(0, 0, c.width, c.height), { drawn: false });
+  note.textContent = "from your photo";
+  e.target.value = "";
+});
+
+try {
+  prog = parseFormula(await (await fetch("../results/mnist/formula.txt")).text());
+  $("size").textContent = `${prog.nodes.toLocaleString()} E’s`;
+  idle();
+} catch {
+  status.textContent = "formula not found";
+}
+</script>
+</body>
+</html>

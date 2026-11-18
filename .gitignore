@@ -1,0 +1,15 @@
+.venv/
+__pycache__/
+.pytest_cache/
+*.pyc
+.DS_Store
+
+# MNIST is downloaded by: uv run python -m eml_study.mnist_data
+/data/
+
+# LaTeX build files (paper/main.pdf is kept)
+paper/*.aux
+paper/*.log
+paper/*.out
+paper/*.fls
+paper/*.fdb_latexmk
