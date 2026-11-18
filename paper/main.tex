@@ -97,9 +97,11 @@ task:
 \paragraph{Contributions.}
 This note makes five contributions.
 \begin{enumerate}
-  \item \textbf{A compiler.} It rewrites a trained neural network as a pure
-        EML expression. The expression contains only $\E$, the number $1$
-        and the pixel values; even the network's weights are built from $1$
+  \item \textbf{A compiler for whole networks.} Compilers already turn
+        single formulas into EML trees (Section~\ref{sec:related}); ours
+        rewrites an entire trained neural network as one pure EML
+        expression. The expression contains only $\E$, the number $1$ and
+        the pixel values; even the network's weights are built from $1$
         (Section~\ref{sec:method}).
   \item \textbf{A working demonstration} on two digit datasets,
         MNIST~\cite{lecun1998} and $8\times8$ digits~\cite{alpaydin1998}.
@@ -120,6 +122,33 @@ This note makes five contributions.
 We claim no new expressivity result. The existence of these expressions
 follows from~\cite{odrzywolek2026}; the contribution is the explicit
 construction, its verification, and its costs.
+
+% ---------------------------------------------------------------------------
+\section{Related work}
+\label{sec:related}
+
+\paragraph{EML in neural networks.}
+Several projects have combined EML with neural networks since the operator
+appeared, all keeping ordinary arithmetic somewhere. The \emph{uniop} toolkit
+runs a $784\!\to\!32\!\to\!10$ MNIST network whose hidden activation is
+$\exp$, that is $\eml(x,1)$, on encrypted inputs; its matrix products remain
+ordinary~\cite{uniop}. The \emph{one-op} project ports GPT-2 to ``EML
+circuits''; its code keeps standard matrix multiplication, exponentials,
+logarithms and square roots~\cite{oneop}. A preprint proposing networks with
+an EML tree as the final layer, and dedicated EML hardware, has been
+withdrawn by its author~\cite{ipek2026}. Odrzywołek reports that symbolic
+regression within an architecture close to standard neural networks remains
+beyond reach, and proposes rational ``M\"obius'' layers
+instead~\cite{odrzywolek2026b}.
+
+\paragraph{Compiling formulas into EML.}
+The original paper includes a compiler from formulas to EML
+trees~\cite{odrzywolek2026}. The \emph{eml-sr} and \emph{uniop} projects
+provide similar compilers~\cite{emlsr,uniop}; eml-sr has a strict mode in
+which the only leaves are $1$ and the variables, as here. These tools work on
+individual formulas. To our knowledge, no earlier work compiles a complete
+trained classifier into a pure EML expression, with every weight built from
+$1$, and checks it on a full test set.
 
 % ---------------------------------------------------------------------------
 \section{Background: arithmetic from one operator}
@@ -470,7 +499,10 @@ task did the EML unit train more reliably than the best standard unit. On the
 one task where its shape should help most, three parallel stripes, it
 succeeded in 13\% of runs, against 98\% for a sine unit. This matches the
 paper's own finding that EML trees become very hard to find by optimization
-beyond depth~4 to~5~\cite{odrzywolek2026}.
+beyond depth~4 to~5~\cite{odrzywolek2026}. An independent study of EML layers
+reached the same verdict against ReLU and Kolmogorov--Arnold networks, and
+traced the failure to the exploding gradient of the $\ln$
+branch~\cite{emlablation}.
 
 % ---------------------------------------------------------------------------
 \section{Discussion}
@@ -501,9 +533,14 @@ solution, even at depths where random starts fail.
 On processors built around multiply--add, the EML form is slower by orders of
 magnitude. Its one structural advantage is uniformity: a single operation
 repeated. Bipolar transistors compute exponentials and logarithms natively,
-which is the basis of translinear circuits~\cite{gilbert1975}; an array of
-identical analog $\E$ cells is conceivable. We have not studied this, and
-precision, noise and the complex intermediates would all be obstacles.
+which is the basis of translinear circuits~\cite{gilbert1975}, and
+Odrzywołek suggests EML as a building block for analog
+computing~\cite{odrzywolek2026}. The eml-sr project simulates analog EML
+cells, including a translinear design, to measure how component noise
+accumulates with tree depth~\cite{emlsr}. An expression of depth~152, like
+ours, would be a demanding case for such hardware, and its complex
+intermediate values a further obstacle. We have not studied this
+ourselves.
 
 \paragraph{Limitations.}
 We compiled two small perceptrons on two digit datasets; larger or
@@ -526,7 +563,7 @@ leaves.
 
 
 
-\begin{thebibliography}{9}\small
+\begin{thebibliography}{99}\small
 \bibitem{odrzywolek2026}
 A.~Odrzywołek.
 \newblock All elementary functions from a single operator.
@@ -562,6 +599,34 @@ ISO/IEC 9899:1999.
 B.~Gilbert.
 \newblock Translinear circuits: a proposed classification.
 \newblock \emph{Electronics Letters}, 11(1):14--16, 1975.
+
+\bibitem{odrzywolek2026b}
+A.~Odrzywołek.
+\newblock Diversity of EML-type operators.
+\newblock arXiv:2609.11210, 2026.
+
+\bibitem{ipek2026}
+E.~Ipek.
+\newblock Hardware-efficient neuro-symbolic networks with the Exp-Minus-Log
+  operator.
+\newblock arXiv:2604.13871, 2026 (withdrawn).
+
+\bibitem{uniop}
+uniop: a symbolic-regression, compilation, and emission toolkit over a single
+  binary operator.
+\newblock \url{https://github.com/vmallela0/uniop}, 2026.
+
+\bibitem{oneop}
+one-op: continuous Sheffer primitives for deep learning.
+\newblock \url{https://github.com/atveit/one-op}, 2026.
+
+\bibitem{emlsr}
+eml-sr: EML symbolic regression, compiler and analog noise simulations.
+\newblock \url{https://github.com/oaustegard/eml-sr}, 2026.
+
+\bibitem{emlablation}
+EML: Exp-Minus-Log neural networks, an ablation study.
+\newblock \url{https://github.com/SebastienSeg/eml-ablation-}, 2026.
 \end{thebibliography}
 
 

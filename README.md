@@ -73,7 +73,7 @@ uv run pytest                                  # Python tests
 node webapp/test_eml.mjs && node webapp/test_preprocess.mjs && node webapp/test_photo.mjs   # browser demo
 ```
 
-The single-unit studies (Section 5 of the paper):
+The single-unit studies (Section 6 of the paper):
 
 ```sh
 uv run python -m eml_study.boundary_analysis
