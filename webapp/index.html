@@ -70,6 +70,9 @@
   .facts { border-top: 2px solid var(--fg); padding: 16px 0 36px; row-gap: 14px; }
   .fact { grid-column: span 2; }
   .fact .v { margin-top: 2px; }
+  .switch { display: flex; gap: 14px; }
+  .switch button { font: inherit; color: var(--grey); background: none; border: 0; padding: 0; cursor: pointer; }
+  .switch button[aria-pressed="true"] { color: var(--fg); font-weight: 700; text-decoration: underline; text-underline-offset: 4px; }
   @media (max-width: 900px) { .fact { grid-column: span 4; } }
 
   /* formula */
@@ -89,16 +92,36 @@
   footer .l { grid-column: 1 / 9; }
   footer .r { grid-column: 9 / 13; text-align: right; }
 
+  .phone { display: none; }
+
+  /* phone: the answer sits above the pad so it stays in view while drawing */
   @media (max-width: 760px) {
     .page { padding: 0 16px; }
-    .left, .right, header .title, header nav, footer .l, footer .r { grid-column: 1 / -1; }
-    .right { aspect-ratio: auto; }
-    .right .scores { margin-top: 18px; }
+    header { padding: 16px 0 10px; }
+    header .title, header nav, footer .l, footer .r { grid-column: 1 / -1; }
     header nav { justify-content: flex-start; margin-top: 6px; }
     footer .r { text-align: left; margin-top: 6px; }
-    #answer { font-size: 200px; padding-top: 28px; }
-    .bench { row-gap: 40px; }
-    .scores .bar { height: 56px; }
+
+    .bench { padding: 14px 0 28px; row-gap: 14px; }
+    .right { display: contents; }
+    .answer-row { grid-column: 1 / -1; order: 0; padding-bottom: 10px; align-items: center; }
+    .left { grid-column: 1 / -1; order: 1; }
+    .scores { grid-column: 1 / -1; order: 2; margin-top: 4px; }
+    #answer { font-size: 104px; padding-top: 10px; margin-left: -4px; }
+    .input { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+    #seen { width: 42px; height: 42px; margin: 0; }
+    .phone { display: flex; }
+    .input .switch { border: 1px solid var(--fg); gap: 0; }
+    .input .switch button { padding: 8px 12px; min-height: 36px; }
+    .input .switch button[aria-pressed="true"] { background: var(--fg); color: var(--bg); text-decoration: none; }
+    #status-m { font-weight: 700; }
+
+    .actions { gap: 0; margin-top: 4px; flex-wrap: wrap; }
+    .actions button, .actions label { padding: 12px 22px 12px 0; white-space: nowrap; }
+    #note { flex-basis: 100%; margin: 0; }
+    .scores .bar { height: 44px; }
+
+    .fact { grid-column: span 6; }
   }
   @media (prefers-reduced-motion: reduce) { .scores .bar i { transition: none; } }
 </style>
@@ -109,7 +132,7 @@
     <div class="title caps">EML Digit Reader</div>
     <nav class="caps">
       <a href="../paper/main.pdf">Paper</a>
-      <a href="../results/mnist/formula.txt">Formula</a>
+      <a id="formula-link" href="../results/mnist/formula.txt">Formula</a>
       <a href="https://github.com/darhnoel/eml-digit-recognition">Code</a>
     </nav>
   </header>
@@ -134,6 +157,11 @@
         <div class="input">
           <div class="caps grey">Input</div>
           <canvas id="seen" width="28" height="28" title="What the formula sees: 28 × 28, prepared like MNIST"></canvas>
+          <div class="phone switch caps" role="group" aria-label="Formula">
+            <button type="button" data-formula="paper" aria-pressed="true">Paper</button>
+            <button type="button" data-formula="compact" aria-pressed="false">Compact</button>
+          </div>
+          <div class="phone" id="status-m">loading</div>
         </div>
       </div>
       <div class="scores" id="bars" aria-label="Scores for each digit"></div>
@@ -142,11 +170,15 @@
 
   <section class="grid facts">
     <div class="fact"><div class="caps grey">Operator</div><div class="v">E(x, y) = e<sup>x</sup> − ln y</div></div>
-    <div class="fact"><div class="caps grey">Formula</div><div class="v" id="size">258,842 E’s</div></div>
-    <div class="fact"><div class="caps grey">Leaves</div><div class="v">1 and 784 pixels</div></div>
-    <div class="fact"><div class="caps grey">Depth</div><div class="v">152 steps</div></div>
-    <div class="fact"><div class="caps grey">Time</div><div class="v" id="status">loading</div></div>
-    <div class="fact"><div class="caps grey">MNIST test</div><div class="v">96.35%</div></div>
+    <div class="fact"><div class="caps grey">Formula</div>
+      <div class="v switch" role="group" aria-label="Formula">
+        <button type="button" data-formula="paper" aria-pressed="true">Paper</button>
+        <button type="button" data-formula="compact" aria-pressed="false">Compact</button>
+      </div></div>
+    <div class="fact"><div class="caps grey">Size</div><div class="v" id="size">258,842 E’s</div></div>
+    <div class="fact"><div class="caps grey">Depth</div><div class="v" id="depth">152 steps</div></div>
+    <div class="fact"><div class="caps grey">Time per digit</div><div class="v" id="status">loading</div></div>
+    <div class="fact"><div class="caps grey">MNIST test</div><div class="v" id="acc">96.35%</div></div>
   </section>
 
   <details>
@@ -168,10 +200,11 @@ import { toMnist } from "./preprocess.js";
 const $ = (id) => document.getElementById(id);
 const sheet = $("sheet"), pad = $("pad"), ctx = pad.getContext("2d", { willReadFrequently: true });
 const seen = $("seen").getContext("2d");
-const answer = $("answer"), bars = $("bars"), status = $("status"), note = $("note"), receipt = $("receipt");
+const answer = $("answer"), bars = $("bars"), note = $("note"), receipt = $("receipt");
+const setStatus = (t) => { $("status").textContent = $("status-m").textContent = t; };
 const cssVar = (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 const fgRGB = () => (cssVar("--fg").match(/\w\w/g) ?? ["00", "00", "00"]).map((h) => parseInt(h, 16));
-let prog = null, mode = "drawn", samples = null, sampleIdx = 0;
+let prog = null, mode = "drawn", samples = null, sampleIdx = 0, lastInput = null;
 
 const fmt = (v) => !Number.isFinite(v) ? (Number.isNaN(v) ? "NaN" : v > 0 ? "+∞" : "−∞")
   : Math.abs(v) < 5e-13 ? "0" : v.toFixed(4).replace(/\.?0+$/, "").replace("-", "−");
@@ -211,27 +244,35 @@ function showSeen(px) {
 function idle() {
   answer.textContent = "0"; answer.classList.add("empty");
   showSeen(null); renderScores(null); renderReceipt(null);
-  if (prog) status.textContent = "ready";
+  if (prog) setStatus("ready");
+}
+
+// Average time of one evaluation: browser clocks are coarse (~0.1 ms), so repeat for ~60 ms.
+function timeIt(px) {
+  let runs = 0;
+  const t0 = performance.now();
+  do { evaluateFull(prog, px); runs++; } while (performance.now() - t0 < 60);
+  const ms = (performance.now() - t0) / runs;
+  return ms < 1 ? `${Math.round(ms * 1000)} µs` : `${ms.toFixed(1)} ms`;
 }
 
 function read(imageData, { drawn = true } = {}) {
   if (!prog) return;
+  lastInput = [imageData, { drawn }];
   const px = toMnist(imageData, { drawn });
   if (!px) { idle(); return; }
   showSeen(px);
-  const t0 = performance.now();
   const vals = evaluateFull(prog, px);
-  const ms = performance.now() - t0;
   answer.textContent = String(vals.scores.indexOf(Math.max(...vals.scores)));
   answer.classList.remove("empty");
   renderScores(vals.scores); renderReceipt(vals);
-  status.textContent = `${ms.toFixed(1)} ms`;
+  setStatus(drawing ? "…" : timeIt(px));
 }
 
 function clearPad() {
   ctx.clearRect(0, 0, pad.width, pad.height);
   sheet.classList.remove("inked");
-  mode = "drawn"; note.textContent = "";
+  mode = "drawn"; note.textContent = ""; lastInput = null;
   idle();
 }
 
@@ -296,13 +337,31 @@ $("upload").addEventListener("change", async (e) => {
   e.target.value = "";
 });
 
-try {
-  prog = parseFormula(await (await fetch("../results/mnist/formula.txt")).text());
+// two formulas for the same task: the paper's, and the compact one (pruned network, compact compiler)
+const FORMULAS = {
+  paper: { file: "../results/mnist/formula.txt", acc: "96.35%" },
+  compact: { file: "../results/mnist/formula_compact.txt", acc: "96.13%" },
+};
+const loaded = {};
+
+async function useFormula(name) {
+  document.querySelectorAll("[data-formula]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.formula === name)));
+  setStatus("loading");
+  try {
+    loaded[name] ??= parseFormula(await (await fetch(FORMULAS[name].file)).text());
+  } catch {
+    setStatus("formula not found");
+    return;
+  }
+  prog = loaded[name];
   $("size").textContent = `${prog.nodes.toLocaleString()} E’s`;
-  idle();
-} catch {
-  status.textContent = "formula not found";
+  $("depth").textContent = `${prog.levelWidths.length} steps`;
+  $("acc").textContent = FORMULAS[name].acc;
+  $("formula-link").href = FORMULAS[name].file;
+  if (lastInput) read(...lastInput); else idle();
 }
+document.querySelectorAll("[data-formula]").forEach((b) => b.addEventListener("click", () => useFormula(b.dataset.formula)));
+await useFormula("paper");
 </script>
 </body>
 </html>
