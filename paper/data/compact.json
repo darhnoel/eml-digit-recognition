@@ -1,0 +1,32 @@
+{
+  "same_network_compact": {
+    "E_nodes": 107468,
+    "depth": 222,
+    "accuracy": 0.9635
+  },
+  "original": {
+    "E_nodes": 258842,
+    "depth": 152,
+    "accuracy": 0.9635,
+    "file_kb": 6194,
+    "us_numpy_batch": 3936.3969789119437,
+    "us_javascript": 3587.31,
+    "us_rust_one_core": 1182.5349999999999,
+    "us_rust_all_cores": 201.03199999999998,
+    "threads": 10,
+    "E_per_image_rust": 233126
+  },
+  "compact": {
+    "E_nodes": 13999,
+    "depth": 184,
+    "accuracy": 0.9613,
+    "file_kb": 298,
+    "us_numpy_batch": 201.86214603018016,
+    "us_javascript": 267.73,
+    "us_rust_one_core": 120.423,
+    "us_rust_all_cores": 17.237000000000002,
+    "threads": 10,
+    "E_per_image_rust": 11165
+  },
+  "network_us_numpy_batch": 0.4342266696039587
+}

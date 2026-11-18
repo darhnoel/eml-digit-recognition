@@ -1,0 +1,9 @@
+{
+  "nonzero_weights": 1644,
+  "pixels_read": 435,
+  "E_compiled": 15546,
+  "E_merged": 13999,
+  "depth": 184,
+  "accuracy": 0.9613,
+  "max_score_change_from_merging": 7.460698725481052e-14
+}

@@ -53,8 +53,10 @@ every test image, with logits that differ by at most $4.3\times10^{-14}$.
 The construction is exact but expensive: the expression has 258{,}842
 distinct $\eml$ nodes (about $6.8\times10^{8}$ nodes per class score when
 fully written out) and depth~152, and it needs more than 500 times the arithmetic per image
-of the network it came from. We also
-report two numerical limits of EML arithmetic in IEEE double precision. The two parts of the result answer
+of the network it came from. A pruned network, a more compact
+compiler and the merging of equal subexpressions reduce it to 13{,}999 nodes
+at 96.13\% accuracy, read in 0.12\,ms per image on one CPU core. We also
+report numerical limits of EML arithmetic in IEEE double precision. The two parts of the result answer
 two different questions. Can an EML expression recognize handwritten digits?
 Yes. Can such an expression be learned directly in EML form? Not with current
 methods: we obtained it by training an ordinary network and then translating
@@ -93,7 +95,7 @@ task:
 \end{enumerate}
 
 \paragraph{Contributions.}
-This note makes four contributions.
+This note makes five contributions.
 \begin{enumerate}
   \item \textbf{A compiler for whole networks.} Compilers already turn
         single formulas into EML trees (Section~\ref{sec:related}); ours
@@ -111,6 +113,9 @@ This note makes four contributions.
   \item \textbf{Two limits of EML arithmetic on real computers}, caused by
         the finite range of floating-point numbers
         (Section~\ref{sec:numerics}).
+  \item \textbf{A much smaller expression}: 13{,}999 nodes instead of
+        258{,}842 for MNIST, $18\times$ fewer, at 96.13\% instead of
+        96.35\% (Section~\ref{sec:compress}).
 \end{enumerate}
 
 We claim no new expressivity result. The existence of these expressions
@@ -279,79 +284,72 @@ expression in~$1$. We round $|w|$ to $n\,2^{-k}$ with $256\le n<512$
   \ln|w| = \ln n - k\ln 2 ,
 \]
 with $n$ and $2$ obtained from~$1$ by repeated doubling and addition, and
-$k\ln2$ by doubling $\ln 2$. A product $w\,x$ is then
-$\exp(\ln|w| + \ln x)$, entered into a positive or a negative partial sum
-according to the sign of $w$. Building constants in the log domain is not
+$k\ln2$ by doubling $\ln 2$. Building constants in the log domain is not
 only shorter; it is required, see Section~\ref{sec:numerics}.
 
 \subsection{Compilation and evaluation}
-Algorithm~\ref{alg:compile} gives the compiler in full. It has two parts.
-The first part (\textsc{Node} to \textsc{Tanh}) is a fixed set of rewrite
-rules, one per operation, each built only from $\E$ and $1$ using the
-identities of Section~\ref{sec:background}. The second part
-(\textsc{CompileMLP}) walks the network layer by layer and applies those
-rules. \textsc{Node} never creates the same $\E(a,b)$ twice: if a node with
-the same two children exists, it is reused (hash-consing). The result is
-therefore a directed acyclic graph in which each distinct subexpression is
-stored once; the literal EML tree is the full expansion of this graph.
-\textsc{Sum} adds terms in a balanced binary tree, which keeps the depth
-logarithmic in the number of terms. Products $w\,x$ are formed as
-$\exp(\ln|w|+\ln x)$, and the sign of $w$ decides whether the term enters
-the positive or the negative partial sum, so no rule needs a negative
-constant.
+The compiler has two parts. The first (Algorithm~\ref{alg:rules}) is a fixed
+set of rewrite rules, one per operation, each built only from $\E$ and $1$
+with the identities of Section~\ref{sec:background}. Every rule creates nodes
+through \textsc{Node}, which never creates the same $\E(a,b)$ twice: if a
+node with the same two children exists, it is reused (hash-consing). The
+result is a directed acyclic graph in which each distinct subexpression is
+stored once; the literal EML tree is its full expansion. \textsc{Sum} adds
+terms in a balanced binary tree, which keeps the depth logarithmic in the
+number of terms.
 
-\begin{algorithm}[!htb]
-\caption{Compiling a one-hidden-layer $\tanh$ network into a pure EML
-expression. Inputs $W_1\in\mathbb{R}^{H\times D}$, $b_1\in\mathbb{R}^{H}$,
-$W_2\in\mathbb{R}^{K\times H}$, $b_2\in\mathbb{R}^{K}$; leaves
-$\mathbf{1}$ and $p_1,\dots,p_D$ (the pixels).}
-\label{alg:compile}
+\begin{algorithm}[tb]
+\caption{Rewrite rules. Each returns a node of the graph; $\mathbf{1}$ is
+the leaf $1$ and $\mathbf{0}=\textsc{Ln}(\mathbf{1})$.}
+\label{alg:rules}
 \small
 \begin{algorithmic}[1]
-\Statex \textit{Rewrite rules (each returns a node of the graph)}
 \Function{Node}{$a,b$} \Comment{the only operator: $\E(a,b)=e^{a}-\ln b$}
   \If{$(a,b)\in\mathcal{T}$} \Return $\mathcal{T}[(a,b)]$ \EndIf
-  \State create node $v=\E(a,b)$; \ $\mathcal{T}[(a,b)]\gets v$; \ \Return $v$
+  \State create $v=\E(a,b)$; \ $\mathcal{T}[(a,b)]\gets v$; \ \Return $v$
 \EndFunction
 \Function{Exp}{$x$} \Return \textsc{Node}($x,\mathbf{1}$) \EndFunction
 \Function{Ln}{$x$} \Return \textsc{Node}($\mathbf{1},\ \textsc{Node}(\textsc{Node}(\mathbf{1},x),\mathbf{1})$) \EndFunction
-\Function{Sub}{$x,y$} \Return $\textsc{Node}(\textsc{Ln}(x),\ \textsc{Exp}(y))$ \Comment{$x-y$} \EndFunction
-\Function{Add}{$x,y$} \Return \textsc{Sub}($x,\ \textsc{Sub}(\mathbf{0},y)$) \Comment{$\mathbf{0}=\textsc{Ln}(\mathbf{1})$} \EndFunction
-\Function{Sum}{$t_1,\dots,t_m$} \Comment{balanced tree of \textsc{Add}; $\mathbf{0}$ if $m=0$}
-  \While{more than one term} \State replace each adjacent pair $(t,t')$ by \textsc{Add}($t,t'$) \EndWhile
-  \State \Return the remaining term
+\Function{Sub}{$x,y$} \Return \textsc{Node}($\textsc{Ln}(x),\ \textsc{Exp}(y)$) \Comment{$x-y$} \EndFunction
+\Function{Add}{$x,y$} \Return \textsc{Sub}($x,\ \textsc{Sub}(\mathbf{0},y)$) \Comment{$x+y$} \EndFunction
+\Function{Sum}{$t_1,\dots,t_m$} \Return a balanced tree of \textsc{Add} \EndFunction
+\Function{Int}{$n$} \Return \textsc{Sum} of $P_i$ over the bits $i$ of $n$ \Comment{$P_0=\mathbf{1}$, $P_i=\textsc{Add}(P_{i-1},P_{i-1})$} \EndFunction
+\Function{LnConst}{$w$} \Comment{$\ln|w|$ for $|w|\approx n\,2^{-k}$, $256\le n<512$}
+  \State \Return \textsc{Sub}($\textsc{Ln}(\textsc{Int}(n)),\ k\cdot\textsc{Ln}(\textsc{Int}(2))$) \Comment{$k\ln 2$ by doubling}
 \EndFunction
-\Function{Int}{$n$} \Comment{$1\le n<512$, from $\mathbf{1}$}
-  \State $P_0\gets\mathbf{1}$; \ $P_{i}\gets\textsc{Add}(P_{i-1},P_{i-1})$ \Comment{$P_i=2^{i}$}
-  \State \Return \textsc{Sum}($P_i$ for each bit $i$ set in $n$)
-\EndFunction
-\Function{LnConst}{$w$} \Comment{$\ln|w|$, with $|w|$ rounded}
-  \State choose $k$ and $256\le n<512$ with $|w|\approx n\,2^{-k}$
-  \State $L_k\gets$ \textsc{Sum}($k$ copies of $\textsc{Ln}(\textsc{Int}(2))$), built by doubling
-  \State \Return \textsc{Sub}($\textsc{Ln}(\textsc{Int}(n)),\ L_k$) \Comment{use \textsc{Add} if $k<0$}
-\EndFunction
-\Function{Tanh}{$a$} \Comment{$\tanh a = 1-2/(e^{2a}+1)$}
+\Function{Tanh}{$a$} \Comment{$1-2/(e^{2a}+1)$}
   \State $d\gets\textsc{Add}(\textsc{Exp}(\textsc{Add}(a,a)),\ \mathbf{1})$
   \State \Return \textsc{Sub}($\mathbf{1},\ \textsc{Exp}(\textsc{Sub}(\textsc{Ln}(\textsc{Int}(2)),\ \textsc{Ln}(d)))$)
 \EndFunction
+\end{algorithmic}
+\end{algorithm}
+
+The second part (Algorithm~\ref{alg:compile}) walks the network layer by
+layer and applies the rules. A product $w\,x$ is formed as
+$\exp(\ln|w|+\ln x)$, and the sign of $w$ decides whether the term enters the
+positive or the negative partial sum, so no rule needs a negative constant.
+
+\begin{algorithm}[tb]
+\caption{Compiling a one-hidden-layer $\tanh$ network
+($W_1\in\mathbb{R}^{H\times D}$, $b_1$, $W_2\in\mathbb{R}^{K\times H}$, $b_2$)
+into a pure EML expression with leaves $\mathbf{1}$ and the pixels
+$p_1,\dots,p_D$.}
+\label{alg:compile}
+\small
+\begin{algorithmic}[1]
 \Function{Affine}{$\ell_1,\dots,\ell_m;\ w_1,\dots,w_m;\ c$} \Comment{$\sum_i w_i x_i + c$, given $\ell_i=\ln x_i$}
   \State $\mathcal{P}\gets[\,]$, \ $\mathcal{N}\gets[\,]$
-  \For{$i=1,\dots,m$ with $w_i\neq0$}
+  \For{each $i$ with $w_i\neq0$}
     \State $t\gets\textsc{Exp}(\textsc{Add}(\textsc{LnConst}(w_i),\ \ell_i))$ \Comment{$|w_i|\,x_i$}
     \State append $t$ to $\mathcal{P}$ if $w_i>0$, else to $\mathcal{N}$
   \EndFor
   \State append $\textsc{Exp}(\textsc{LnConst}(c))$ to $\mathcal{P}$ or $\mathcal{N}$ by the sign of $c$
   \State \Return \textsc{Sub}($\textsc{Sum}(\mathcal{P}),\ \textsc{Sum}(\mathcal{N})$)
 \EndFunction
-\Statex
-\Statex \textit{The network}
 \Function{CompileMLP}{$W_1,b_1,W_2,b_2$}
-  \For{$i=1,\dots,D$} $\ell_i\gets\textsc{Ln}(p_i)$ \EndFor
-  \For{$j=1,\dots,H$}
-    \State $h_j\gets\textsc{Tanh}(\textsc{Affine}(\ell;\ W_1[j,:];\ b_1[j]))$; \ $m_j\gets\textsc{Ln}(h_j)$
-  \EndFor
-  \For{$k=1,\dots,K$} $r_k\gets\textsc{Affine}(m;\ W_2[k,:];\ b_2[k])$ \EndFor
-  \State \Return $r_1,\dots,r_K$ \Comment{class scores; the prediction is $\arg\max_k r_k$}
+  \State $\ell_i\gets\textsc{Ln}(p_i)$ for $i=1,\dots,D$
+  \State $m_j\gets\textsc{Ln}(\textsc{Tanh}(\textsc{Affine}(\ell;\ W_1[j,:];\ b_1[j])))$ for $j=1,\dots,H$
+  \State \Return $r_k=\textsc{Affine}(m;\ W_2[k,:];\ b_2[k])$ for $k=1,\dots,K$ \Comment{predict $\arg\max_k r_k$}
 \EndFunction
 \end{algorithmic}
 \end{algorithm}
@@ -481,6 +479,130 @@ shape differs from handwriting ($1$, $6$, $9$), which reflects the training
 data, not the EML form.
 
 % ---------------------------------------------------------------------------
+\section{Smaller expressions}
+\label{sec:compress}
+
+The MNIST expression of Section~\ref{sec:results} is far from minimal.
+Three changes, applied in order, reduce it from 258{,}842 to 13{,}999
+distinct $\E$ nodes at 96.13\% accuracy (Table~\ref{tab:compact}).
+
+\paragraph{A more compact compiler.}
+In Algorithm~\ref{alg:compile} one weighted input $w\,x$ costs dozens of
+nodes: an \textsc{Add} inside an \textsc{Exp}, plus its share of the balanced
+\textsc{Sum} and the final \textsc{Sub}. Two identities do the same work with
+three nodes. With $1/|w|$ built from $1$ as before,
+\[
+  a = \E\!\left(\ln\ln x,\ 1/|w|\right) = \ln x + \ln|w|,
+  \qquad
+  V' = \E\!\left(a,\ e^{V}\right) = |w|\,x - V ,
+\]
+so one node forms the term and two nodes subtract the running total from it.
+A chain of such steps adds its terms with alternating signs, so each term's
+sign is placed on its input: $\ln\ln(-x)=\ln(\ln x+i\pi)$ makes $e^{a}=-|w|\,x$
+on the principal branch. The sign cannot be placed on the constant, because
+negating $1/|w|$ evaluates $e^{1/|w|}$, which overflows for small weights
+(Section~\ref{sec:numerics}). Chains of 28 terms are joined by balanced
+addition, which keeps the depth moderate. On the network of
+Section~\ref{sec:results} this alone gives 107{,}468 nodes, $2.4\times$ fewer,
+with the same prediction on every test image.
+Algorithm~\ref{alg:compact} gives the construction.
+
+\begin{algorithm}[tb]
+\caption{Compact weighted sum, replacing \textsc{Affine} of
+Algorithm~\ref{alg:compile}. \textsc{Const}$(c)$ builds a positive constant from $\mathbf{1}$ as \textsc{LnConst} does; inputs enter as
+$\lambda_i=(\ln\ln x_i,\ \ln\ln(-x_i))$.}
+\label{alg:compact}
+\small
+\begin{algorithmic}[1]
+\Function{Chain}{$\lambda_1,\dots,\lambda_m;\ w_1,\dots,w_m$} \Comment{$\sum_i w_i x_i$, $m\le 28$}
+  \State $V\gets$ none
+  \For{$i=1,\dots,m$}
+    \State $s\gets(-1)^{m-i}$ \Comment{the sign term $i$ enters $V$ with}
+    \State $a\gets\textsc{Node}(\lambda_i[\,s\,w_i>0\ ?\ 1:2\,],\ \textsc{Const}(1/|w_i|))$ \Comment{$e^{a}=s\,w_i\,x_i$}
+    \State $V\gets\textsc{Node}(a,\ \mathbf{1})$ if $V$ is none, else $\textsc{Node}(a,\ \textsc{Exp}(V))$ \Comment{$e^{a}-V$}
+  \EndFor
+  \State \Return $V$
+\EndFunction
+\Function{Affine}{$\lambda;\ w;\ c$} \Return \textsc{Sum} of \textsc{Chain} over blocks of 28 terms, with $c$ as the term $c\cdot 1$ \EndFunction
+\end{algorithmic}
+\end{algorithm}
+
+\paragraph{A pruned network.}
+Most of the reduction comes from ordinary magnitude
+pruning~\cite{lecun1990,han2015}, not from EML. We train a network with 64
+hidden units and remove its smallest first-layer weights in steps, keeping
+50, 30, 20, 15, 10, 7, 5, 3 and finally 2\%, with four epochs of retraining
+after each step. The final network has 1{,}644 nonzero weights (1{,}004 in the
+first layer, reading 435 of the 784 pixels) instead of 25{,}408, and its
+expression has 15{,}546 nodes. Figure~\ref{fig:frontier} shows the size and
+accuracy of every expression we built this way, and of a variant whose first
+layer uses only the weights $\{-\alpha,0,\alpha\}$; pruning gave the smaller
+expression at every accuracy level.
+
+\paragraph{Merging equal subexpressions.}
+Hash-consing merges identical subexpressions but not different
+subexpressions with the same value, such as $\exp(\ln x)$ and $x$. We
+evaluate every node on 256 probe inputs (200 training digits and 56 images of
+random noise), group the nodes whose values agree, and replace each node by
+the smallest earlier node in its group, measured by the size of its fully
+written-out tree, provided they agree within $10^{-11}$ on all probes. This
+removes 1{,}547 nodes. Equality on probes is a test, not a proof; on all
+10{,}000 test images the merged expression predicts the same class as before
+and its logits change by at most $7.5\times10^{-14}$.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.8\linewidth]{figures/frontier.pdf}
+\caption{Size against accuracy for pure EML expressions of MNIST classifiers
+(every point evaluated as an expression on the 10{,}000 test images). Each
+line is one network size, pruned step by step from right to left.}
+\label{fig:frontier}
+\end{figure}
+
+\begin{table}[tb]
+\centering
+\caption{The MNIST expression of Section~\ref{sec:results}, the same network
+compiled with the compact compiler, and the pruned network compiled
+compactly and merged. Times are per image on an Apple M5: NumPy evaluates
+1{,}000 images level by level; JavaScript is the demo's browser evaluator,
+one image at a time; the Rust evaluator computes the nodes that do not depend
+on the image once, before the first image.}
+\label{tab:compact}
+\small
+\begin{tabular}{lrrr}
+\toprule
+ & Section~\ref{sec:results} & compact compiler & pruned, merged \\
+\midrule
+Network & $784\!\to\!32\!\to\!10$ & same & $784\!\to\!64\!\to\!10$ \\
+Nonzero weights & 25{,}408 & 25{,}408 & 1{,}644 \\
+Accuracy, pure EML expression & 96.35\% & 96.35\% & 96.13\% \\
+Distinct $\E$ nodes & 258{,}842 & 107{,}468 & 13{,}999 \\
+Depth & 152 & 222 & 184 \\
+Expression file (text) & 6.3\,MB & & 306\,KB \\
+\midrule
+NumPy, per image & 3.9\,ms & & 0.20\,ms \\
+JavaScript (browser), per image & 3.6\,ms & & 0.27\,ms \\
+Rust, one core & 1.2\,ms & & 0.12\,ms \\
+Rust, ten cores, per image & 0.20\,ms & & 0.017\,ms \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{What did not work.}
+Deleting nodes one at a time, keeping each deletion that left the accuracy on
+1{,}000 training images within 0.25 points, reached 10{,}653 nodes but only
+88.46\% on the test images: the deletions fitted those 1{,}000 images. We did
+not use it.
+
+\paragraph{Signed zeros.}
+The compact expression is sensitive to the sign of zero, which the original
+one is not: $\ln(-0-0i)=-\infty-i\pi$, while $\ln(+0)=-\infty$. Both follow
+C99~\cite{c99}, and NumPy observes them. Our first Rust and JavaScript
+evaluators returned $0$ for $e^{-\infty-i\pi}$ instead of $-0-0i$, and the
+compact expression then produced NaN for every image. With signed zeros
+handled, Rust and JavaScript agree with NumPy on all 10{,}000 test images.
+
+% ---------------------------------------------------------------------------
 \section{Discussion}
 
 \paragraph{Expressing versus learning.}
@@ -506,7 +628,9 @@ tree whose leaves are only $1$ and the inputs encodes its knowledge in its
 shape, and a digit classifier needs thousands of learned quantities. Our
 compiled expressions are, however, far from minimal; for example
 Table~\ref{tab:recipes} uses 13 nodes for $x+y$, and the paper's direct search
-finds 9. How small an EML expression for MNIST can be is open. The compiled
+finds 9. Section~\ref{sec:compress} removes 95\% of the MNIST expression
+without losing much accuracy, mostly by pruning the network before
+compiling it. How small an EML expression for MNIST can be is still open. The compiled
 expression is a natural starting point for such a search, since the paper
 reports that optimization recovers EML trees reliably when started near a
 solution, even at depths where random starts fail.
@@ -536,7 +660,10 @@ operator $e^{x}-\ln y$ and the constant $1$, and that expression works in
 ordinary double precision: 96.35\% on MNIST, identical to its source network
 on all 10{,}000 test images. It is obtained by compiling a trained network;
 it is about ten times larger than the network in distinct operations and
-thousands of times slower to evaluate on a CPU. Whether much smaller EML expressions for
+thousands of times slower to evaluate on a CPU. Pruning the network first
+and compiling it more compactly gives an expression $18\times$ smaller at
+96.13\%, still hundreds of times slower than the network itself (0.20\,ms
+against 0.43\,$\mu$s per image, both in NumPy). Whether much smaller EML expressions for
 such tasks exist, and whether they can be found, are the open questions this
 leaves.
 
@@ -568,6 +695,17 @@ E.~Alpaydin and C.~Kaynak.
 D.~P. Kingma and J.~Ba.
 \newblock Adam: A method for stochastic optimization.
 \newblock In \emph{ICLR}, 2015.
+
+\bibitem{lecun1990}
+Y.~LeCun, J.~S. Denker, and S.~A. Solla.
+\newblock Optimal brain damage.
+\newblock In \emph{Advances in Neural Information Processing Systems 2}, 1990.
+
+\bibitem{han2015}
+S.~Han, J.~Pool, J.~Tran, and W.~J. Dally.
+\newblock Learning both weights and connections for efficient neural
+  networks.
+\newblock In \emph{Advances in Neural Information Processing Systems 28}, 2015.
 
 \bibitem{c99}
 ISO/IEC 9899:1999.

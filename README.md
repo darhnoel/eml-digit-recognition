@@ -21,6 +21,11 @@ is `E` and whose only leaves are `1` and the pixels**.
 | Distinct `E` nodes | 17,613 | 258,842 |
 | Depth | 134 | 152 |
 
+A smaller expression (paper, Section 6): pruning the network before
+compiling it, a more compact compiler and merging equal subexpressions give
+**13,999 `E` nodes at 96.13%**, 18× fewer
+([`results/mnist/formula_compact.txt`](results/mnist/formula_compact.txt)).
+
 The expression is not trained directly. A small neural network is trained as
 usual and then **compiled**: every `+`, `×`, `tanh` and weight is rewritten
 into nested `E`s, with every weight built from `1`. The result is exact, but
@@ -34,7 +39,9 @@ python3 -m http.server 8000      # from the repository root
 # open http://localhost:8000/webapp/  and draw a digit
 ```
 
-The page evaluates the full E-formula in JavaScript (about 3 ms per digit); see [webapp/](webapp/).
+The page evaluates the E-formula in JavaScript: about 4 ms per digit for the
+original formula and 0.3 ms for the compact one (switch between them on the
+page); see [webapp/](webapp/).
 
 ## The expression itself
 
@@ -68,6 +75,10 @@ uv run python -m eml_study.mnist_compile       # train, compile, evaluate  → r
 uv run python -m eml_study.ocr_compile         # same for 8×8 digits      → results/ocr/
 PYTHONPATH=. uv run python paper/make_figures.py       # figures and timings (Section 5)
 PYTHONPATH=. uv run python paper/check_real_images.py  # photo-like and printed digits (Section 5.3)
+uv run python -m eml_study.compact_compile     # the compact formula (Section 6) → results/mnist/formula_compact.txt
+PYTHONPATH=. uv run python paper/frontier.py           # Figure 4: size against accuracy (a few minutes)
+PYTHONPATH=. uv run python paper/compact_table.py      # Table 4, including the Rust and browser timings
+cargo test --release --manifest-path eml-eval/Cargo.toml   # Rust evaluator
 uv run pytest                                  # Python tests
 node webapp/test_eml.mjs && node webapp/test_preprocess.mjs && node webapp/test_photo.mjs   # browser demo
 ```
@@ -79,9 +90,18 @@ node webapp/test_eml.mjs && node webapp/test_preprocess.mjs && node webapp/test_
 | `eml_study/eml_compiler.py` | Builds pure EML expressions (exp, ln, +, −, ×, constants from 1) and evaluates them |
 | `eml_study/mnist_compile.py`, `ocr_compile.py` | Train a network and compile it to EML |
 | `eml_study/read_digit.py`, `image_input.py` | Read digits (or photos) using only a formula file |
+| `eml_study/networks.py`, `compact_compile.py`, `formula.py` | Pruned networks, the compact compiler, and simplifying a formula (Section 6) |
+| `eml-eval/` | Fast evaluator in Rust: `cargo run --release --manifest-path eml-eval/Cargo.toml -- results/mnist/formula_compact.txt` |
 | `paper/` | LaTeX source, figures, the PDF, and the scripts and data behind every number |
 | `results/` | The compiled formula files and their summaries (`mnist/`, `ocr/`) |
 | `webapp/` | Browser demo: draw a digit, read by the formula in JavaScript |
+
+## Versions
+
+- **v2**: adds Section 6 (a 13,999-node expression, 18× smaller), the Rust
+  evaluator, and a switch between the two formulas in the demo; fixes signed
+  zeros in the browser evaluator.
+- **v1**: the paper as first published (tag `v1`).
 
 ## License
 
