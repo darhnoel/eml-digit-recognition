@@ -54,9 +54,7 @@ The construction is exact but expensive: the expression has 258{,}842
 distinct $\eml$ nodes (about $6.8\times10^{8}$ nodes per class score when
 fully written out) and depth~152, and it needs more than 500 times the arithmetic per image
 of the network it came from. We also
-report two numerical limits of EML arithmetic in IEEE double precision, and
-two single-unit studies showing that one EML unit with learned weights trains
-less reliably than standard activations. The two parts of the result answer
+report two numerical limits of EML arithmetic in IEEE double precision. The two parts of the result answer
 two different questions. Can an EML expression recognize handwritten digits?
 Yes. Can such an expression be learned directly in EML form? Not with current
 methods: we obtained it by training an ordinary network and then translating
@@ -95,7 +93,7 @@ task:
 \end{enumerate}
 
 \paragraph{Contributions.}
-This note makes five contributions.
+This note makes four contributions.
 \begin{enumerate}
   \item \textbf{A compiler for whole networks.} Compilers already turn
         single formulas into EML trees (Section~\ref{sec:related}); ours
@@ -113,10 +111,6 @@ This note makes five contributions.
   \item \textbf{Two limits of EML arithmetic on real computers}, caused by
         the finite range of floating-point numbers
         (Section~\ref{sec:numerics}).
-  \item \textbf{Two small experiments} asking whether a single EML unit,
-        trained like a neuron, learns better than standard neurons. The
-        success criteria were fixed before running. It does not
-        (Section~\ref{sec:units}).
 \end{enumerate}
 
 We claim no new expressivity result. The existence of these expressions
@@ -487,24 +481,6 @@ shape differs from handwriting ($1$, $6$, $9$), which reflects the training
 data, not the EML form.
 
 % ---------------------------------------------------------------------------
-\section{Can EML units be trained directly?}
-\label{sec:units}
-
-If EML were a better building block for learning, a single EML unit with
-trainable weights should learn simple tasks at least as reliably as standard
-units of the same size. We tested this in two small studies, with the success
-criteria fixed before running; the designs and full results are in the
-code repository. It did not: on no
-task did the EML unit train more reliably than the best standard unit. On the
-one task where its shape should help most, three parallel stripes, it
-succeeded in 13\% of runs, against 98\% for a sine unit. This matches the
-paper's own finding that EML trees become very hard to find by optimization
-beyond depth~4 to~5~\cite{odrzywolek2026}. An independent study of EML layers
-reached the same verdict against ReLU and Kolmogorov--Arnold networks, and
-traced the failure to the exploding gradient of the $\ln$
-branch~\cite{emlablation}.
-
-% ---------------------------------------------------------------------------
 \section{Discussion}
 
 \paragraph{Expressing versus learning.}
@@ -513,7 +489,13 @@ recognition: an expression with only $\E$, $1$ and pixels reads handwritten
 digits as accurately as the network it came from. EML does not by itself
 \emph{learn} it: the expression has no numeric parameters to adjust, only a
 shape, and a shape of depth 152 is far beyond the depths at which EML trees
-can currently be found by optimization. The working route is to learn with a
+can currently be found by optimization: recovery from random starts falls
+from 100\% at depth~2 to under 1\% at depth~5~\cite{odrzywolek2026}.
+Odrzywołek also reports that learning EML expressions inside network-like
+architectures remains beyond reach~\cite{odrzywolek2026b}, and an independent
+study found that EML layers train worse than ReLU and Kolmogorov--Arnold
+layers, because of the exploding gradient of the $\ln$
+branch~\cite{emlablation}. The working route is to learn with a
 parametric model and then compile. The analogy with NAND is close: every
 digital OCR program is, at the gate level, a NAND circuit, yet such circuits
 are compiled from programs and are not searched for gate by gate.
@@ -543,21 +525,18 @@ intermediate values a further obstacle. We have not studied this
 ourselves.
 
 \paragraph{Limitations.}
-We compiled two small perceptrons on two digit datasets; larger or
-convolutional networks compile the same way but have not been measured. The
-single-unit studies use 2-D synthetic tasks and do not test EML inside
-multi-layer networks or with complex-valued intermediates passed between
-units. Timing results depend on the implementation and hardware.
+We compiled two small networks on two digit datasets; larger or
+convolutional networks compile the same way but have not been measured.
+Timing results depend on the implementation and hardware.
 
 % ---------------------------------------------------------------------------
 \section{Conclusion}
 A handwritten-digit classifier can be written as a single expression in the
 operator $e^{x}-\ln y$ and the constant $1$, and that expression works in
 ordinary double precision: 96.35\% on MNIST, identical to its source network
-on all 10{,}000 test images. It is obtained by compiling a trained network,
+on all 10{,}000 test images. It is obtained by compiling a trained network;
 it is about ten times larger than the network in distinct operations and
-thousands of times slower to evaluate on a CPU, and single EML units do not
-train better than standard ones. Whether much smaller EML expressions for
+thousands of times slower to evaluate on a CPU. Whether much smaller EML expressions for
 such tasks exist, and whether they can be found, are the open questions this
 leaves.
 
