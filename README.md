@@ -67,8 +67,8 @@ Reproduce everything:
 uv run python -m eml_study.mnist_data          # download MNIST (≈12 MB) into data/
 uv run python -m eml_study.mnist_compile       # train, compile, evaluate  → results/mnist/
 uv run python -m eml_study.ocr_compile         # same for 8×8 digits      → results/ocr/
-PYTHONPATH=. uv run python paper/make_figures.py       # figures and timings (Section 4)
-PYTHONPATH=. uv run python paper/check_real_images.py  # photo-like and printed digits (Section 4.3)
+PYTHONPATH=. uv run python paper/make_figures.py       # figures and timings (Section 5)
+PYTHONPATH=. uv run python paper/check_real_images.py  # photo-like and printed digits (Section 5.3)
 uv run pytest                                  # Python tests
 node webapp/test_eml.mjs && node webapp/test_preprocess.mjs && node webapp/test_photo.mjs   # browser demo
 ```
