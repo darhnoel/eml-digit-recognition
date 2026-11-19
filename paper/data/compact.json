@@ -9,24 +9,24 @@
     "depth": 152,
     "accuracy": 0.9635,
     "file_kb": 6194,
-    "us_numpy_batch": 3936.3969789119437,
-    "us_javascript": 3587.31,
-    "us_rust_one_core": 1182.5349999999999,
-    "us_rust_all_cores": 201.03199999999998,
+    "us_numpy_batch": 4082.4568329844624,
+    "us_javascript": 3476.837499999999,
+    "us_rust_one_core": 1197.6779999999999,
+    "us_rust_all_cores": 215.208,
     "threads": 10,
     "E_per_image_rust": 233126
   },
   "compact": {
-    "E_nodes": 13999,
-    "depth": 184,
+    "E_nodes": 7207,
+    "depth": 172,
     "accuracy": 0.9613,
-    "file_kb": 298,
-    "us_numpy_batch": 201.86214603018016,
-    "us_javascript": 267.73,
-    "us_rust_one_core": 120.423,
-    "us_rust_all_cores": 17.237000000000002,
+    "file_kb": 149,
+    "us_numpy_batch": 105.78987502958626,
+    "us_javascript": 154.34500000000003,
+    "us_rust_one_core": 74.624,
+    "us_rust_all_cores": 16.305,
     "threads": 10,
-    "E_per_image_rust": 11165
+    "E_per_image_rust": 6897
   },
-  "network_us_numpy_batch": 0.4342266696039587
+  "network_us_numpy_batch": 0.4397562495432794
 }

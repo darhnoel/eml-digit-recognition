@@ -29,3 +29,29 @@ def test_ternary_formula_computes_its_quantized_network():
     net = MLP(RNG.uniform(1, 5, (4, 1)) * T / 255, RNG.normal(size=4), RNG.normal(size=(10, 4)), RNG.normal(size=10))
     formula, q = compile_ternary(net)
     assert np.allclose(formula.scores(PIXELS), q(PIXELS), atol=1e-9)
+
+
+def test_ordered_signs_compute_the_same_network_without_negated_inputs():
+    net = sparse_net()
+    formula, q = compile_compact(net, order_signs=True)
+    assert np.allclose(formula.scores(PIXELS), q(PIXELS), atol=1e-9)
+    assert not any("ln ln(-x)" in part for part in formula.breakdown())
+
+
+def test_four_bit_training_rounds_like_the_compiler():
+    import torch
+
+    from eml_study.compact_compile import quantized
+    from eml_study.networks import round_ste
+
+    W = RNG.normal(0, 0.3, (6, 9)) * (RNG.random((6, 9)) < 0.5)
+    assert np.array_equal(round_ste(torch.from_numpy(W), 4).numpy(), quantized(W, 4))
+
+
+def test_saliency_mask_keeps_the_weights_on_pixels_that_vary():
+    from eml_study.networks import saliency_mask
+
+    W1 = np.array([[1.0, 1.0, 0.0], [0.5, 2.0, 0.3]])
+    spread = np.array([1.0, 0.1, 1.0])  # pixel 1 hardly varies
+    mask = saliency_mask(W1, spread, 3)
+    assert mask.tolist() == [[1, 0, 0], [1, 0, 1]]  # the largest weight, 2.0, goes: its pixel hardly varies

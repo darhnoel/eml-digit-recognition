@@ -33,11 +33,15 @@ class Formula:
     b: np.ndarray  # second operand slot of each E
     outputs: np.ndarray  # slots of score_0, score_1, ...
     n_inputs: int = 784
+    parts: np.ndarray | None = None  # optional: which part of the build made each E
 
     # -- building --------------------------------------------------------------
     @classmethod
-    def from_builder(cls, B: Builder, roots: list[int], n_inputs: int = 784) -> Formula:
-        """The E's of a Builder graph that the roots use, in creation order."""
+    def from_builder(cls, B: Builder, roots: list[int], n_inputs: int = 784, parts: dict | None = None) -> Formula:
+        """The E's of a Builder graph that the roots use, in creation order.
+
+        `parts` optionally maps a Builder node to a label (see `breakdown`).
+        """
         used, stack = set(), list(roots)
         while stack:
             k = stack.pop()
@@ -53,6 +57,7 @@ class Formula:
             np.array([slot[B.b[k]] for k in es], dtype=np.int64),
             np.array([slot[r] for r in roots], dtype=np.int64),
             n_inputs,
+            None if parts is None else np.array([parts.get(k, "other") for k in es], dtype=object),
         )
 
     @classmethod
@@ -93,6 +98,11 @@ class Formula:
         for x, y in zip(self.a.tolist(), self.b.tolist()):
             level.append(1 + max(level[x], level[y]))
         return np.array(level)
+
+    def breakdown(self) -> dict[str, int]:
+        """How many E's each part of the build contributes (needs `parts`)."""
+        labels, counts = np.unique(self.parts.astype(str), return_counts=True)
+        return dict(sorted(zip(labels.tolist(), counts.tolist()), key=lambda kv: -kv[1]))
 
     @property
     def depth(self) -> int:
@@ -163,7 +173,8 @@ class Formula:
         keep = np.flatnonzero(used[first:])
         new = np.arange(self.n_slots)
         new[first + keep] = first + np.arange(len(keep))
-        return Formula(new[a[keep]], new[b[keep]], new[outputs], self.n_inputs)
+        parts = None if self.parts is None else self.parts[keep]
+        return Formula(new[a[keep]], new[b[keep]], new[outputs], self.n_inputs, parts)
 
 
 def _fingerprint(v: np.ndarray) -> bytes:

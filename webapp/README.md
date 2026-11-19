@@ -5,8 +5,9 @@ Draw a digit; it is read by the pure E-formula `results/mnist/formula.txt`
 No neural-network code runs on the page.
 
 A switch selects a second formula, `results/mnist/formula_compact.txt`
-(13,999 E's, 96.13% on the MNIST test set, from a pruned network with a more
-compact compiler); it reads a digit in about 0.35 ms instead of about 4 ms.
+(7,207 E's, 96.13% on the MNIST test set, from a pruned network with 4-bit
+weights and a more compact compiler); it reads a digit in about 0.2 ms
+instead of about 4 ms.
 
 Run from the repository root (the page loads `../results/mnist/formula.txt`):
 

@@ -53,9 +53,10 @@ every test image, with logits that differ by at most $4.3\times10^{-14}$.
 The construction is exact but expensive: the expression has 258{,}842
 distinct $\eml$ nodes (about $6.8\times10^{8}$ nodes per class score when
 fully written out) and depth~152, and it needs more than 500 times the arithmetic per image
-of the network it came from. A pruned network, a more compact
-compiler and the merging of equal subexpressions reduce it to 13{,}999 nodes
-at 96.13\% accuracy, read in 0.12\,ms per image on one CPU core. We also
+of the network it came from. A pruned network with coarse 4-bit weights, a
+more compact compiler and the merging of equal subexpressions reduce it to
+7{,}207 nodes, 36 times fewer, at 96.13\% accuracy, read in 0.075\,ms per
+image on one CPU core. We also
 report numerical limits of EML arithmetic in IEEE double precision. The two parts of the result answer
 two different questions. Can an EML expression recognize handwritten digits?
 Yes. Can such an expression be learned directly in EML form? Not with current
@@ -113,9 +114,10 @@ This note makes five contributions.
   \item \textbf{Two limits of EML arithmetic on real computers}, caused by
         the finite range of floating-point numbers
         (Section~\ref{sec:numerics}).
-  \item \textbf{A much smaller expression}: 13{,}999 nodes instead of
-        258{,}842 for MNIST, $18\times$ fewer, at 96.13\% instead of
-        96.35\% (Section~\ref{sec:compress}).
+  \item \textbf{A much smaller expression}: 7{,}207 nodes instead of
+        258{,}842 for MNIST, $36\times$ fewer, at 96.13\% instead of
+        96.35\%, from a pruned network with coarse weights and a more compact
+        compiler (Section~\ref{sec:compress}).
 \end{enumerate}
 
 We claim no new expressivity result. The existence of these expressions
@@ -482,9 +484,11 @@ data, not the EML form.
 \section{Smaller expressions}
 \label{sec:compress}
 
-The MNIST expression of Section~\ref{sec:results} is far from minimal.
-Three changes, applied in order, reduce it from 258{,}842 to 13{,}999
-distinct $\E$ nodes at 96.13\% accuracy (Table~\ref{tab:compact}).
+The MNIST expression of Section~\ref{sec:results} is far from minimal. The
+changes below, applied in order, reduce it from 258{,}842 to 7{,}207 distinct
+$\E$ nodes, 36 times fewer, at 96.13\% accuracy. Table~\ref{tab:steps} lists
+the expression after each step; every one of them predicts the same class as
+the network it was compiled from on all 10{,}000 test images.
 
 \paragraph{A more compact compiler.}
 In Algorithm~\ref{alg:compile} one weighted input $w\,x$ costs dozens of
@@ -549,21 +553,75 @@ written-out tree, provided they agree within $10^{-11}$ on all probes. This
 removes 1{,}547 nodes. Equality on probes is a test, not a proof; on all
 10{,}000 test images the merged expression predicts the same class as before
 and its logits change by at most $7.5\times10^{-14}$.
+These three changes give 13{,}999 nodes.
 
-\begin{figure}[htbp]
+\paragraph{Ordered signs.}
+Because a chain subtracts its running total at every step, terms had to enter
+with alternating signs, and so every pixel and hidden value was also prepared
+negated, as $\ln\ln(-x)$: 3{,}019 nodes in all. Alternating the signs of the
+weights themselves makes this unnecessary. If $V$ holds $-S$, a positive weight
+gives $V'=|w|\,x+S$; if $V$ holds $S$, a negative weight gives
+$V'=-(S+w\,x)$. Each chain therefore takes positive and negative weights in
+turn; when one sign runs out, the running total is negated
+($\textsc{Sub}(\mathbf{0},V)$, two nodes), and a chain that ends holding $-S$
+is subtracted rather than added. This removes 1{,}544 nodes and changes no
+prediction.
+
+\paragraph{Coarse weights.}
+With 9 significant bits nearly every weight needs its own constant, and the
+constants take 22\% of the nodes. We round every weight to 4 significant bits
+instead ($8\le n<16$ in $n\,2^{-k}$), so that weights share constants, and
+retrain for 12 epochs with the rounding in the forward pass and the gradient
+passed straight through it~\cite{bengio2013,jacob2018}, so that the network
+adapts to the coarse weights. Accuracy rises slightly, to 96.37\%; in the
+final expression the constants take 262 nodes.
+
+\paragraph{More pruning.}
+The second layer had not been pruned. Removing half of its weights, in two
+steps with 12 epochs of retraining after each, saves 1{,}021 nodes. In the
+first layer, magnitude pruning treats every pixel alike, yet pixels near the
+border are almost always blank, and a weight on a pixel that hardly varies
+changes little. We rank the first-layer weights by $|w|$ times the standard
+deviation of their pixel over the training images and keep 900, 800 and
+finally 700 of them, retraining after each step. This saves another 1{,}643
+nodes, partly because whole pixels drop out: the final network reads 348 of
+the 784 pixels and has 1{,}020 nonzero weights. Repeating the whole procedure
+with two other random seeds gives 7{,}290 and 7{,}389 nodes at 95.92\% and
+96.29\%: about 7{,}300 nodes at 96.1\% on average, with differences between
+runs of a few tenths of a point.
+
+\begin{table}[tb]
 \centering
-\includegraphics[width=0.8\linewidth]{figures/frontier.pdf}
-\caption{Size against accuracy for pure EML expressions of MNIST classifiers
-(every point evaluated as an expression on the 10{,}000 test images). Each
-line is one network size, pruned step by step from right to left.}
-\label{fig:frontier}
-\end{figure}
+\caption{The MNIST expression after each step of Section~\ref{sec:compress}
+(seed 0). Weights are the network's nonzero weights; pixels are the pixels it
+reads. Each expression predicts the same class as its network on all 10{,}000
+test images.}
+\label{tab:steps}
+\small
+\begin{tabular}{lrrrr}
+\toprule
+Step & $\E$ nodes & weights & pixels & accuracy \\
+\midrule
+Section~\ref{sec:results} & 258{,}842 & 25{,}408 & 784 & 96.35\% \\
+compact compiler, same network & 107{,}468 & 25{,}408 & 784 & 96.35\% \\
+pruned network, 64 hidden units & 15{,}546 & 1{,}644 & 435 & 96.13\% \\
+merging equal subexpressions & 13{,}999 & 1{,}644 & 435 & 96.13\% \\
+ordered signs & 12{,}455 & 1{,}644 & 435 & 96.13\% \\
+4-bit weights, retrained & 9{,}871 & 1{,}644 & 435 & 96.37\% \\
+second layer kept 70\% & 9{,}194 & 1{,}452 & 435 & 96.42\% \\
+second layer kept 50\% & 8{,}850 & 1{,}324 & 435 & 96.17\% \\
+first layer kept 900 weights & 8{,}284 & 1{,}220 & 406 & 96.13\% \\
+first layer kept 800 weights & 7{,}740 & 1{,}120 & 378 & 96.23\% \\
+first layer kept 700 weights & \textbf{7{,}207} & 1{,}020 & 348 & \textbf{96.13\%} \\
+\bottomrule
+\end{tabular}
+\end{table}
 
 \begin{table}[tb]
 \centering
 \caption{The MNIST expression of Section~\ref{sec:results}, the same network
-compiled with the compact compiler, and the pruned network compiled
-compactly and merged. Times are per image on an Apple M5: NumPy evaluates
+compiled with the compact compiler, and the final compact expression of
+Table~\ref{tab:steps}. Times are per image on an Apple M5: NumPy evaluates
 1{,}000 images level by level; JavaScript is the demo's browser evaluator,
 one image at a time; the Rust evaluator computes the nodes that do not depend
 on the image once, before the first image.}
@@ -571,28 +629,43 @@ on the image once, before the first image.}
 \small
 \begin{tabular}{lrrr}
 \toprule
- & Section~\ref{sec:results} & compact compiler & pruned, merged \\
+ & Section~\ref{sec:results} & compact compiler & final \\
 \midrule
 Network & $784\!\to\!32\!\to\!10$ & same & $784\!\to\!64\!\to\!10$ \\
-Nonzero weights & 25{,}408 & 25{,}408 & 1{,}644 \\
+Nonzero weights & 25{,}408 & 25{,}408 & 1{,}020 \\
 Accuracy, pure EML expression & 96.35\% & 96.35\% & 96.13\% \\
-Distinct $\E$ nodes & 258{,}842 & 107{,}468 & 13{,}999 \\
-Depth & 152 & 222 & 184 \\
-Expression file (text) & 6.3\,MB & & 306\,KB \\
+Distinct $\E$ nodes & 258{,}842 & 107{,}468 & 7{,}207 \\
+Depth & 152 & 222 & 172 \\
+Expression file (text) & 6.3\,MB & & 152\,KB \\
 \midrule
-NumPy, per image & 3.9\,ms & & 0.20\,ms \\
-JavaScript (browser), per image & 3.6\,ms & & 0.27\,ms \\
-Rust, one core & 1.2\,ms & & 0.12\,ms \\
-Rust, ten cores, per image & 0.20\,ms & & 0.017\,ms \\
+NumPy, per image & 4.1\,ms & & 0.11\,ms \\
+JavaScript (browser), per image & 3.5\,ms & & 0.15\,ms \\
+Rust, one core & 1.2\,ms & & 0.075\,ms \\
+Rust, ten cores, per image & 0.22\,ms & & 0.016\,ms \\
 \bottomrule
 \end{tabular}
 \end{table}
+
+\begin{figure}[!tb]
+\centering
+\includegraphics[width=0.75\linewidth]{figures/frontier.pdf}
+\caption{Size against accuracy for pure EML expressions of MNIST classifiers
+(every point evaluated as an expression on the 10{,}000 test images). Each
+grey line is one network size, pruned step by step from right to left and
+compiled with 9-bit weights and negated inputs; the red line follows
+Table~\ref{tab:steps} from 13{,}999 nodes on.}
+\label{fig:frontier}
+\end{figure}
+
 
 \paragraph{What did not work.}
 Deleting nodes one at a time, keeping each deletion that left the accuracy on
 1{,}000 training images within 0.25 points, reached 10{,}653 nodes but only
 88.46\% on the test images: the deletions fitted those 1{,}000 images. We did
-not use it.
+not use it. Giving each negative weight a negative constant, built in the log
+domain as $\ln(-n)=\ln n+i\pi$, instead of negating the running total, gave a
+larger expression (12{,}837 against 12{,}455 nodes): such constants are rarely
+shared.
 
 \paragraph{Signed zeros.}
 The compact expression is sensitive to the sign of zero, which the original
@@ -628,9 +701,9 @@ tree whose leaves are only $1$ and the inputs encodes its knowledge in its
 shape, and a digit classifier needs thousands of learned quantities. Our
 compiled expressions are, however, far from minimal; for example
 Table~\ref{tab:recipes} uses 13 nodes for $x+y$, and the paper's direct search
-finds 9. Section~\ref{sec:compress} removes 95\% of the MNIST expression
-without losing much accuracy, mostly by pruning the network before
-compiling it. How small an EML expression for MNIST can be is still open. The compiled
+finds 9. Section~\ref{sec:compress} removes 97\% of the MNIST expression
+while losing 0.2 points of accuracy, mostly by changing the network before
+compiling it: pruning it and coarsening its weights. How small an EML expression for MNIST can be is still open. The compiled
 expression is a natural starting point for such a search, since the paper
 reports that optimization recovers EML trees reliably when started near a
 solution, even at depths where random starts fail.
@@ -660,10 +733,10 @@ operator $e^{x}-\ln y$ and the constant $1$, and that expression works in
 ordinary double precision: 96.35\% on MNIST, identical to its source network
 on all 10{,}000 test images. It is obtained by compiling a trained network;
 it is about ten times larger than the network in distinct operations and
-thousands of times slower to evaluate on a CPU. Pruning the network first
-and compiling it more compactly gives an expression $18\times$ smaller at
-96.13\%, still hundreds of times slower than the network itself (0.20\,ms
-against 0.43\,$\mu$s per image, both in NumPy). Whether much smaller EML expressions for
+thousands of times slower to evaluate on a CPU. Pruning the network,
+coarsening its weights and compiling it more compactly gives an expression
+$36\times$ smaller at 96.13\%, still hundreds of times slower than the
+network itself (0.11\,ms against 0.44\,$\mu$s per image, both in NumPy). Whether much smaller EML expressions for
 such tasks exist, and whether they can be found, are the open questions this
 leaves.
 
@@ -706,6 +779,19 @@ S.~Han, J.~Pool, J.~Tran, and W.~J. Dally.
 \newblock Learning both weights and connections for efficient neural
   networks.
 \newblock In \emph{Advances in Neural Information Processing Systems 28}, 2015.
+
+\bibitem{bengio2013}
+Y.~Bengio, N.~L\'eonard, and A.~Courville.
+\newblock Estimating or propagating gradients through stochastic neurons for
+  conditional computation.
+\newblock arXiv:1308.3432, 2013.
+
+\bibitem{jacob2018}
+B.~Jacob, S.~Kligys, B.~Chen, M.~Zhu, M.~Tang, A.~Howard, H.~Adam, and
+  D.~Kalenichenko.
+\newblock Quantization and training of neural networks for efficient
+  integer-arithmetic-only inference.
+\newblock In \emph{CVPR}, 2018.
 
 \bibitem{c99}
 ISO/IEC 9899:1999.

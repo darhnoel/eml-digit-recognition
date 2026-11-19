@@ -1,9 +1,23 @@
 {
-  "nonzero_weights": 1644,
-  "pixels_read": 435,
-  "E_compiled": 15546,
-  "E_merged": 13999,
-  "depth": 184,
+  "nonzero_weights": 1020,
+  "pixels_read": 348,
+  "bits": 4,
+  "E_compiled": 7867,
+  "E_merged": 7207,
+  "depth": 172,
   "accuracy": 0.9613,
-  "max_score_change_from_merging": 7.460698725481052e-14
+  "max_score_change_from_merging": 4.440892098500626e-14,
+  "breakdown": {
+    "layer 1 sums": 2171,
+    "pixels": 2088,
+    "layer 2 sums": 923,
+    "tanh": 672,
+    "layer 1 sums: sign flips": 484,
+    "hidden": 384,
+    "weight constants": 262,
+    "layer 2 sums: joining chains": 84,
+    "layer 2 sums: sign flips": 70,
+    "layer 1 sums: joining chains": 66,
+    "setup": 3
+  }
 }

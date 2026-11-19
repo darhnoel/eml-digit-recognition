@@ -1,4 +1,4 @@
-"""Table 4: the original MNIST expression against the compact ones (Section 6).
+"""Table 5: the original MNIST expression against the compact ones (Section 6).
 
 Three expressions: the original (Section 5); the same network compiled with
 the compact compiler; and the pruned, merged expression. For each: size,

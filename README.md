@@ -21,9 +21,9 @@ is `E` and whose only leaves are `1` and the pixels**.
 | Distinct `E` nodes | 17,613 | 258,842 |
 | Depth | 134 | 152 |
 
-A smaller expression (paper, Section 6): pruning the network before
-compiling it, a more compact compiler and merging equal subexpressions give
-**13,999 `E` nodes at 96.13%**, 18× fewer
+A smaller expression (paper, Section 6): pruning the network, coarse 4-bit
+weights, a more compact compiler and merging equal subexpressions give
+**7,207 `E` nodes at 96.13%**, 36× fewer
 ([`results/mnist/formula_compact.txt`](results/mnist/formula_compact.txt)).
 
 The expression is not trained directly. A small neural network is trained as
@@ -76,8 +76,9 @@ uv run python -m eml_study.ocr_compile         # same for 8×8 digits      → r
 PYTHONPATH=. uv run python paper/make_figures.py       # figures and timings (Section 5)
 PYTHONPATH=. uv run python paper/check_real_images.py  # photo-like and printed digits (Section 5.3)
 uv run python -m eml_study.compact_compile     # the compact formula (Section 6) → results/mnist/formula_compact.txt
-PYTHONPATH=. uv run python paper/frontier.py           # Figure 4: size against accuracy (a few minutes)
-PYTHONPATH=. uv run python paper/compact_table.py      # Table 4, including the Rust and browser timings
+PYTHONPATH=. uv run python paper/compression_steps.py  # Table 4: the formula after each step, and two more seeds
+PYTHONPATH=. uv run python paper/frontier.py           # Figure 4: size against accuracy (a few minutes; --plot to redraw)
+PYTHONPATH=. uv run python paper/compact_table.py      # Table 5, including the Rust and browser timings
 cargo test --release --manifest-path eml-eval/Cargo.toml   # Rust evaluator
 uv run pytest                                  # Python tests
 node webapp/test_eml.mjs && node webapp/test_preprocess.mjs && node webapp/test_photo.mjs   # browser demo
@@ -98,6 +99,9 @@ node webapp/test_eml.mjs && node webapp/test_preprocess.mjs && node webapp/test_
 
 ## Versions
 
+- **v3**: Section 6 extended: ordered signs, 4-bit weights with retraining and
+  more pruning take the compact expression from 13,999 to 7,207 nodes at the
+  same accuracy (a new table lists every step, with two more random seeds).
 - **v2**: adds Section 6 (a 13,999-node expression, 18× smaller), the Rust
   evaluator, and a switch between the two formulas in the demo; fixes signed
   zeros in the browser evaluator.

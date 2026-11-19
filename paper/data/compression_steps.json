@@ -1,0 +1,125 @@
+{
+  "steps": [
+    {
+      "step": "original (Section 5)",
+      "E_nodes": 258842,
+      "depth": 152,
+      "weights": 25408,
+      "pixels": 784,
+      "accuracy": 0.9635,
+      "same_as_network": 1.0
+    },
+    {
+      "step": "compact compiler, same network",
+      "E_nodes": 107468,
+      "depth": 222,
+      "weights": 25408,
+      "pixels": 784,
+      "accuracy": 0.9635,
+      "same_as_network": 1.0
+    },
+    {
+      "step": "pruned network (64 hidden, 2% of layer 1)",
+      "E_nodes": 15546,
+      "depth": 196,
+      "weights": 1644,
+      "pixels": 435,
+      "accuracy": 0.9613,
+      "same_as_network": 1.0
+    },
+    {
+      "step": "merging equal subexpressions (v2)",
+      "E_nodes": 13999,
+      "depth": 184,
+      "weights": 1644,
+      "pixels": 435,
+      "accuracy": 0.9613,
+      "same_as_network": 1.0
+    },
+    {
+      "step": "ordered signs",
+      "E_nodes": 12455,
+      "depth": 200,
+      "weights": 1644,
+      "pixels": 435,
+      "accuracy": 0.9613,
+      "same_as_network": 1.0
+    },
+    {
+      "step": "4-bit weights",
+      "E_nodes": 9871,
+      "depth": 182,
+      "weights": 1644,
+      "pixels": 435,
+      "accuracy": 0.9637,
+      "same_as_network": 1.0
+    },
+    {
+      "step": "layer 2 kept 70%",
+      "E_nodes": 9194,
+      "depth": 178,
+      "weights": 1452,
+      "pixels": 435,
+      "accuracy": 0.9642,
+      "same_as_network": 1.0
+    },
+    {
+      "step": "layer 2 kept 50%",
+      "E_nodes": 8850,
+      "depth": 180,
+      "weights": 1324,
+      "pixels": 435,
+      "accuracy": 0.9617,
+      "same_as_network": 1.0
+    },
+    {
+      "step": "layer 1 kept 900 weights",
+      "E_nodes": 8284,
+      "depth": 180,
+      "weights": 1220,
+      "pixels": 406,
+      "accuracy": 0.9613,
+      "same_as_network": 1.0
+    },
+    {
+      "step": "layer 1 kept 800 weights",
+      "E_nodes": 7740,
+      "depth": 176,
+      "weights": 1120,
+      "pixels": 378,
+      "accuracy": 0.9623,
+      "same_as_network": 1.0
+    },
+    {
+      "step": "layer 1 kept 700 weights",
+      "E_nodes": 7207,
+      "depth": 172,
+      "weights": 1020,
+      "pixels": 348,
+      "accuracy": 0.9613,
+      "same_as_network": 1.0
+    }
+  ],
+  "other_seeds": [
+    {
+      "seed": 1,
+      "step": "final, seed 1",
+      "E_nodes": 7290,
+      "depth": 196,
+      "weights": 1020,
+      "pixels": 362,
+      "accuracy": 0.9592,
+      "same_as_network": 1.0
+    },
+    {
+      "seed": 2,
+      "step": "final, seed 2",
+      "E_nodes": 7389,
+      "depth": 178,
+      "weights": 1020,
+      "pixels": 369,
+      "accuracy": 0.9629,
+      "same_as_network": 1.0
+    }
+  ]
+}
