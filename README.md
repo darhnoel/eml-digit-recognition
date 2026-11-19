@@ -99,6 +99,8 @@ node webapp/test_eml.mjs && node webapp/test_preprocess.mjs && node webapp/test_
 
 ## Versions
 
+- **v3.1**: a "Use of AI tools" statement; reference corrections (title of
+  Odrzywołek's paper, and three descriptions of related projects).
 - **v3**: Section 6 extended: ordered signs, 4-bit weights with retraining and
   more pruning take the compact expression from 13,999 to 7,207 nodes at the
   same accuracy (a new table lists every step, with two more random seeds).
