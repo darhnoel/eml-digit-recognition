@@ -134,8 +134,8 @@ appeared, all keeping ordinary arithmetic somewhere. The \emph{uniop} toolkit
 runs a $784\!\to\!32\!\to\!10$ MNIST network whose hidden activation is
 $\exp$, that is $\eml(x,1)$, on encrypted inputs; its matrix products remain
 ordinary~\cite{uniop}. The \emph{one-op} project ports GPT-2 to ``EML
-circuits''; its code keeps standard matrix multiplication, exponentials,
-logarithms and square roots~\cite{oneop}. A preprint proposing networks with
+circuits''; its code keeps standard matrix multiplication, exponentials
+and square roots~\cite{oneop}. A preprint proposing networks with
 an EML tree as the final layer, and dedicated EML hardware, has been
 withdrawn by its author~\cite{ipek2026}. Odrzywołek reports that symbolic
 regression within an architecture close to standard neural networks remains
@@ -688,9 +688,10 @@ can currently be found by optimization: recovery from random starts falls
 from 100\% at depth~2 to under 1\% at depth~5~\cite{odrzywolek2026}.
 Odrzywołek also reports that learning EML expressions inside network-like
 architectures remains beyond reach~\cite{odrzywolek2026b}, and an independent
-study found that EML layers train worse than ReLU and Kolmogorov--Arnold
-layers, because of the exploding gradient of the $\ln$
-branch~\cite{emlablation}. The working route is to learn with a
+study found that EML layers beat ReLU and Kolmogorov--Arnold layers on none
+of twelve target functions chosen to favour them, and that the gradient of
+their $\ln$ branch, which explodes near zero, degrades
+training~\cite{emlablation}. The working route is to learn with a
 parametric model and then compile. The analogy with NAND is close: every
 digital OCR program is, at the gate level, a NAND circuit, yet such circuits
 are compiled from programs and are not searched for gate by gate.
@@ -714,9 +715,8 @@ magnitude. Its one structural advantage is uniformity: a single operation
 repeated. Bipolar transistors compute exponentials and logarithms natively,
 which is the basis of translinear circuits~\cite{gilbert1975}, and
 Odrzywołek suggests EML as a building block for analog
-computing~\cite{odrzywolek2026}. The eml-sr project simulates analog EML
-cells, including a translinear design, to measure how component noise
-accumulates with tree depth~\cite{emlsr}. An expression of depth~152, like
+computing~\cite{odrzywolek2026}. The eml-sr project simulates how analog
+component noise accumulates with the depth of EML trees~\cite{emlsr}. An expression of depth~152, like
 ours, would be a demanding case for such hardware, and its complex
 intermediate values a further obstacle. We have not studied this
 ourselves.
@@ -742,10 +742,19 @@ leaves.
 
 
 
+\section*{Use of AI tools}
+The code, the experiments and the text of this paper were produced with the
+AI assistant Claude (Anthropic), working under the author's direction. The
+author chose the questions and the approaches, checked the results, and takes
+full responsibility for the content. The results of Sections~\ref{sec:results}
+and~\ref{sec:compress} are produced by scripts in the accompanying repository
+and can be regenerated from it, except the two attempts reported under
+\emph{What did not work}, whose code is not included.
+
 \begin{thebibliography}{99}\small
 \bibitem{odrzywolek2026}
 A.~Odrzywołek.
-\newblock All elementary functions from a single operator.
+\newblock All elementary functions from a single binary operator.
 \newblock arXiv:2603.21852, 2026.
 
 \bibitem{sheffer1913}
@@ -817,19 +826,19 @@ E.~Ipek.
 \bibitem{uniop}
 uniop: a symbolic-regression, compilation, and emission toolkit over a single
   binary operator.
-\newblock \url{https://github.com/vmallela0/uniop}, 2026.
+\newblock \url{https://github.com/vmallela0/uniop}, 2026. Accessed November 2026.
 
 \bibitem{oneop}
 one-op: continuous Sheffer primitives for deep learning.
-\newblock \url{https://github.com/atveit/one-op}, 2026.
+\newblock \url{https://github.com/atveit/one-op}, 2026. Accessed November 2026.
 
 \bibitem{emlsr}
 eml-sr: EML symbolic regression, compiler and analog noise simulations.
-\newblock \url{https://github.com/oaustegard/eml-sr}, 2026.
+\newblock \url{https://github.com/oaustegard/eml-sr}, 2026. Accessed November 2026.
 
 \bibitem{emlablation}
 EML: Exp-Minus-Log neural networks, an ablation study.
-\newblock \url{https://github.com/SebastienSeg/eml-ablation-}, 2026.
+\newblock \url{https://github.com/SebastienSeg/eml-ablation-}, 2026. Accessed November 2026.
 \end{thebibliography}
 
 
